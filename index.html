@@ -1097,6 +1097,7 @@ const Sfx = {
   item() { [784, 988, 1175, 1568].forEach((f, i) => this.tone(f, 0.25, 'triangle', 0.1, null, i * 0.06)); },
   power() { [523, 659, 784, 1046, 1318].forEach((f, i) => this.tone(f, 0.3, 'square', 0.05, null, i * 0.07)); this.tone(1568, 0.5, 'triangle', 0.08, null, 0.4); },
   crash() { this.noiseHit(0.5, 900, 0.45, 'lowpass', 120); this.tone(660, 0.35, 'triangle', 0.12, 280, 0.05); },
+  bonk(v = 1) { this.tone(180, 0.09, 'square', 0.16 * v, 70); this.noiseHit(0.07, 900, 0.22 * v, 'lowpass', 200); this.tone(320, 0.32, 'triangle', 0.13 * v, 640, 0.05); this.tone(640, 0.22, 'sine', 0.06 * v, 300, 0.12); },
   shieldBreak() { this.noiseHit(0.4, 4000, 0.25, 'highpass', 800); this.tone(880, 0.4, 'sine', 0.12, 220); },
   setMuted(m) { this.muted = m; localStorage.setItem('smu_muted', m ? '1' : '0'); if (this.master) this.master.gain.value = m ? 0 : 0.6; },
   brass(f, t, vol = 0.05, dur = 0.2) { // bright brassy stab: saw + square through a swelling low-pass
@@ -1224,6 +1225,32 @@ function startGame() {
   resetRun(); S.state = 'play'; timeOfDay = Q.has('t') ? +Q.get('t') : 0.05;
   show('menu', false); show('over', false); show('paused', false); show('hud', true);
 }
+
+// ---------- Comic BONK (sign hits only) ----------
+const BONK_SVG = (() => { let pts = []; const n = 14; for (let i = 0; i < n * 2; i++) { const a = i / (n * 2) * Math.PI * 2 - Math.PI / 2, r = i % 2 ? 58 + (i * 37 % 11) : 96 + (i * 53 % 14); pts.push((100 + Math.cos(a) * r * 1.25).toFixed(1) + ',' + (100 + Math.sin(a) * r * 0.82).toFixed(1)); }
+  return `<svg viewBox="-30 0 260 200" width="100%" height="100%"><defs><pattern id="bkdots" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="4.5" cy="4.5" r="2" fill="#e8a020" opacity=".55"/></pattern></defs>
+<g stroke="#3a1d08" stroke-width="5" stroke-linecap="round">${[...Array(10)].map((_, i) => { const a = i / 10 * Math.PI * 2 + 0.3; return `<line x1="${100 + Math.cos(a) * 138}" y1="${100 + Math.sin(a) * 92}" x2="${100 + Math.cos(a) * 158}" y2="${100 + Math.sin(a) * 104}"/>`; }).join('')}</g>
+<polygon points="${pts.join(' ')}" fill="#ffd34d" stroke="#3a1d08" stroke-width="8" stroke-linejoin="round"/><polygon points="${pts.join(' ')}" fill="url(#bkdots)" transform="translate(100 100) scale(.82) translate(-100 -100)"/><ellipse cx="100" cy="100" rx="78" ry="44" fill="#ffe066"/>
+<g transform="rotate(-9 100 100)" font-family="'Arial Black','Impact',sans-serif" font-weight="900" font-size="60" text-anchor="middle"><text x="100" y="122" fill="none" stroke="#3a1d08" stroke-width="16" stroke-linejoin="round">BONK!</text><text x="100" y="122" fill="none" stroke="#fff6dc" stroke-width="8" stroke-linejoin="round">BONK!</text><text x="100" y="122" fill="#CC0035">BONK!</text></g></svg>`; })();
+const bonkEl = (() => { const d = document.createElement('div'); d.id = 'bonk'; d.innerHTML = BONK_SVG; document.body.appendChild(d);
+  const st = document.createElement('style'); st.textContent = `#bonk{position:fixed;left:50%;top:50%;width:min(46vw,340px);aspect-ratio:1.3;pointer-events:none;z-index:60;opacity:0;transform:translate(-50%,-50%) scale(0);filter:drop-shadow(0 5px 0 rgba(58,29,8,.45))}
+#bonk.small{width:min(32vw,230px)}`; document.head.appendChild(st); return d; })();
+const _bv = new THREE.Vector3();
+let bonkT = 0;
+const BK = [[0, .1, -25, 1], [.16, 1.3, 8, 1], [.28, .92, -5, 1], [.4, 1.05, 3, 1], [.62, 1, -1, 1], [1, 1.08, 0, 0]];
+function updateBonk(dt) {
+  if (!bonkT) return; bonkT += Math.min(dt, 1 / 30); const t = Math.min(bonkT / 1.0, 1);
+  let i = 0; while (i < BK.length - 2 && t > BK[i + 1][0]) i++; const a = BK[i], b = BK[i + 1], k = (t - a[0]) / (b[0] - a[0]), L = (u, v) => u + (v - u) * k;
+  bonkEl.style.opacity = L(a[3], b[3]); bonkEl.style.transform = `translate(-50%,${-50 - (t > .62 ? (t - .62) * 16 : 0)}%) scale(${L(a[1], b[1])}) rotate(${L(a[2], b[2])}deg)`;
+  if (t >= 1) { bonkT = 0; bonkEl.style.opacity = 0; }
+}
+function bonk(small) {
+  _bv.set(S.x, 3.4, 0).project(camera);
+  const x = Math.min(78, Math.max(22, (_bv.x * 0.5 + 0.5) * 100)), y = Math.min(70, Math.max(24, (-_bv.y * 0.5 + 0.5) * 100));
+  bonkEl.style.left = x + '%'; bonkEl.style.top = y + '%'; bonkEl.classList.toggle('small', !!small);
+  bonkT = 0.001;
+  Sfx.bonk(small ? 0.7 : 1); S.shake = Math.max(S.shake, small ? 0.35 : 0.6);
+}
 function gameOver() {
   S.state = 'over'; Sfx.stopMusic();
   const sc = Math.floor(S.score), nb = sc > S.best; if (nb) { S.best = sc; localStorage.setItem('smu_best', sc); }
@@ -1303,9 +1330,9 @@ function update(dt) {
       if (!playing || S.dead) continue;
       const b = o.box;
       if (pb.x1 > o.x - b.hw && pb.x0 < o.x + b.hw && pb.z1 > o.z - b.hd && pb.z0 < o.z + b.hd && pb.y1 > b.y0 && pb.y0 < b.y1) {
-        if (GOD || S.god || S.power.express > 0 || S.invuln > 0) { if (S.power.express > 0 && !o.hitFx) { o.hitFx = 1; emit(o.x, 1, o.z, 30, 0xffb050, 7, 0.5, 0.6); } continue; }
-        if (S.power.shield > 0) { S.power.shield = 0; S.invuln = 1.2; Sfx.shieldBreak(); emit(S.x, 1.2, 0, 50, 0x7fd0ff, 8, 0.5, 0.8); S.shake = 0.4; toast('Priority Shield saved you!'); continue; }
-        S.dead = 1; S.deadT = 0; Sfx.crash(); S.shake = 0.8; emit(S.x, 1, -0.5, 40, 0xffe6b0, 6, 0.6, 0.9);
+        if (GOD || S.god || S.power.express > 0 || S.invuln > 0) { if (S.power.express > 0 && !o.hitFx) { o.hitFx = 1; if (o.type.startsWith('sg_')) bonk(true); emit(o.x, 1, o.z, 30, 0xffb050, 7, 0.5, 0.6); } continue; }
+        if (S.power.shield > 0) { S.power.shield = 0; S.invuln = 1.2; Sfx.shieldBreak(); emit(S.x, 1.2, 0, 50, 0x7fd0ff, 8, 0.5, 0.8); S.shake = 0.4; if (o.type.startsWith('sg_')) bonk(true); toast('Priority Shield saved you!'); continue; }
+        S.dead = 1; S.deadT = 0; S.bonked = o.type.startsWith('sg_'); Sfx.crash(); S.shake = 0.8; if (S.bonked) bonk(false); emit(S.x, 1, -0.5, 40, 0xffe6b0, 6, 0.6, 0.9);
       }
     }
     for (let i = items.length - 1; i >= 0; i--) {
@@ -1324,6 +1351,7 @@ function update(dt) {
       }
     }
   }
+  updateBonk(dt);
   if (S.dead) { S.deadT += dt; if (S.deadT > 1.3 && S.state === 'play') gameOver(); }
   updateDogs(dt, dz, playing);
   updateParticles(dt, dz);
@@ -1419,7 +1447,7 @@ function frame() {
 }
 S.state = 'menu'; show('loading', false);
 frame();
-window.__game = { player, startDogs, DOGS, camera, S, startGame, act, Sfx, spawnOb, spawnItem, obstacles, items, setTime: t => { timeOfDay = t; }, JUMP_APEX, OB_TYPES };
+window.__game = { player, startDogs, DOGS, camera, S, startGame, act, Sfx, spawnOb, spawnItem, obstacles, items, setTime: t => { timeOfDay = t; }, JUMP_APEX, OB_TYPES, bonkAt: t => { bonkT = t; updateBonk(0); } };
 
 }catch(e){console.error(e);window.__showErr&&window.__showErr(e&&e.message||e);}})();
 </script>
