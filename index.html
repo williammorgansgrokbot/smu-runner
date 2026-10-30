@@ -1242,13 +1242,13 @@ function updateBonk(dt) {
   if (!bonkT) return; bonkT += Math.min(dt, 1 / 30); const t = Math.min(bonkT / 1.0, 1);
   let i = 0; while (i < BK.length - 2 && t > BK[i + 1][0]) i++; const a = BK[i], b = BK[i + 1], k = (t - a[0]) / (b[0] - a[0]), L = (u, v) => u + (v - u) * k;
   bonkEl.style.opacity = L(a[3], b[3]); bonkEl.style.transform = `translate(-50%,${-50 - (t > .62 ? (t - .62) * 16 : 0)}%) scale(${L(a[1], b[1])}) rotate(${L(a[2], b[2])}deg)`;
-  if (t >= 1) { bonkT = 0; bonkEl.style.opacity = 0; }
+  if (t >= 1) { bonkT = 0; bonkEl.style.opacity = 0; if (toastQ) { const m = toastQ; toastQ = null; toast(m); } }
 }
 function bonk(small) {
   _bv.set(S.x, 3.4, 0).project(camera);
   const x = Math.min(78, Math.max(22, (_bv.x * 0.5 + 0.5) * 100)), y = Math.min(70, Math.max(24, (-_bv.y * 0.5 + 0.5) * 100));
   bonkEl.style.left = x + '%'; bonkEl.style.top = y + '%'; bonkEl.classList.toggle('small', !!small);
-  bonkT = 0.001;
+  if (toastT > 0) { toastQ = $('toast').textContent; toastT = 0; $('toast').classList.remove('show'); } bonkT = 0.001;
   Sfx.bonk(small ? 0.7 : 1); S.shake = Math.max(S.shake, small ? 0.35 : 0.6);
 }
 function gameOver() {
@@ -1272,7 +1272,8 @@ $('muteBtn').style.opacity = Sfx.muted ? 0.4 : 1;
 $('verseToggle').onchange = e => { localStorage.setItem('smu_verse', e.target.checked ? '1' : '0'); show('verse', e.target.checked); };
 $('bestMenu').textContent = S.best.toLocaleString();
 let toastT = 0;
-function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); toastT = 1.4; }
+let toastQ = null;
+function toast(msg) { if (bonkT) { toastQ = msg; return; } const t = $('toast'); t.textContent = msg; t.classList.add('show'); toastT = 1.4; }
 const NAMES = { express: 'Express Delivery', shield: 'Priority Shield', magnet: 'Zip Code Magnet' };
 let lastPowHTML = '';
 function updateHUD() {
@@ -1447,7 +1448,7 @@ function frame() {
 }
 S.state = 'menu'; show('loading', false);
 frame();
-window.__game = { player, startDogs, DOGS, camera, S, startGame, act, Sfx, spawnOb, spawnItem, obstacles, items, setTime: t => { timeOfDay = t; }, JUMP_APEX, OB_TYPES, bonkAt: t => { bonkT = t; updateBonk(0); } };
+window.__game = { player, startDogs, DOGS, camera, S, startGame, act, Sfx, spawnOb, spawnItem, obstacles, items, setTime: t => { timeOfDay = t; }, JUMP_APEX, OB_TYPES, toast, bonkAt: t => { if (toastT > 0) { toastQ = $('toast').textContent; toastT = 0; $('toast').classList.remove('show'); } bonkT = t; updateBonk(0); } };
 
 }catch(e){console.error(e);window.__showErr&&window.__showErr(e&&e.message||e);}})();
 </script>
