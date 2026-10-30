@@ -70,6 +70,13 @@ blockquote cite{display:block;font:700 14px 'Fredoka';font-style:normal;margin-t
 .stat.mult{background:linear-gradient(180deg,#e0294f,var(--smured))}
 .btn.big{background:linear-gradient(180deg,#e0294f,#a8002b);color:#fff8ea}
 @media (max-height:640px){.titlewrap{transform:scale(.82);transform-origin:center}}
+/* phones: keep the runner in frame, faded behind the title UI */
+@media (max-width:640px),(max-height:500px){
+.overlay.title{background-position:74% center;justify-content:center;padding-left:16px}
+.overlay.title::before{background:rgba(255,244,207,.55)}
+.titlewrap{background:rgba(255,248,226,.35);border-radius:18px;padding:10px 12px}
+}
+@media (orientation:landscape) and (max-height:500px){.overlay.title{background-position:center}}
 </style>
 </head><body>
 <canvas id="c"></canvas>
